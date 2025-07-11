@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, redirect, url_for
+from flask import Flask, jsonify, send_from_directory, redirect, url_for, request
 from flask_cors import CORS
 import subprocess
 import threading
@@ -7,6 +7,8 @@ import requests
 import os
 import sys
 from pathlib import Path
+from datetime import datetime, timedelta
+import jwt
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -280,6 +282,41 @@ def generate_sentences():
 def health():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "server": "main"})
+
+# Add this to your backend/app.py for demo purposes
+@app.route('/api/login', methods=['POST'])
+def demo_login():
+    data = request.get_json()
+    
+    # Demo credentials
+    demo_users = {
+        'demo@example.com': 'password123',
+        'test@gmail.com': 'test123',
+        'admin@sanskrit.com': 'admin123'
+    }
+    
+    email = data.get('email')
+    password = data.get('password')
+    
+    if email in demo_users and demo_users[email] == password:
+        # Generate demo token
+        token = jwt.encode({
+            'user_id': 1,
+            'email': email,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }, 'demo-secret-key', algorithm='HS256')
+        
+        return jsonify({
+            'message': 'Login successful',
+            'token': token,
+            'user': {
+                'id': 1,
+                'username': email.split('@')[0],
+                'email': email
+            }
+        }), 200
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
 
 def cleanup_processes():
     """Clean up background processes on exit"""

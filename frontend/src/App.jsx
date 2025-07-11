@@ -1,96 +1,280 @@
 import Dashboard from "./components/Dashboard";
 import HeroSection from "./components/HeroSection";
 import Landing from "./components/Landing";
+import Questions from './components/Question';
+import { LoginSignup } from './components/login_signup';
+import DragDropGame from './components/DragDropGame';
 import { ParallaxProvider } from "react-scroll-parallax";
 import React, { useRef, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { tokenManager } from './services/api';
 
-import Questions from './components/Question';
+// Authentication wrapper component
+function AuthWrapper() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-function ScrollSections() {
-  const heroRef = useRef(null);
-  const dashboardRef = useRef(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isScrolling = useRef(false);
-
-  // Update route on scroll
   useEffect(() => {
-    function handleScroll() {
-      if (isScrolling.current) return;
-      
-      const heroRect = heroRef.current?.getBoundingClientRect();
-      const dashboardRect = dashboardRef.current?.getBoundingClientRect();
-      
-      if (heroRect && dashboardRect) {
-        const heroBottom = heroRect.bottom;
-        const dashboardTop = dashboardRect.top;
-        const windowHeight = window.innerHeight;
-        
-        // If hero section is mostly out of view and dashboard is coming into view
-        if (heroBottom <= windowHeight * 0.3) {
-          if (location.pathname !== "/dashboard") {
-            navigate("/dashboard", { replace: true });
-          }
-        } 
-        // If dashboard is mostly out of view and hero is coming into view
-        else if (dashboardTop >= windowHeight * 0.7) {
-          if (location.pathname !== "/") {
-            navigate("/", { replace: true });
-          }
-        }
-      }
-    }
-    
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [navigate, location.pathname]);
+    const checkAuth = () => {
+      const isAuth = tokenManager.isAuthenticated();
+      setIsAuthenticated(isAuth);
+      setLoading(false);
+    };
+    checkAuth();
+  }, []);
 
-  // Scroll to section on route change
-  useEffect(() => {
-    if (isScrolling.current) return;
-    
-    let target = null;
-    if (location.pathname === "/dashboard") {
-      target = dashboardRef.current;
-    } else if (location.pathname === "/") {
-      target = heroRef.current;
-    }
-    
-    if (target) {
-      isScrolling.current = true;
-      target.scrollIntoView({ behavior: "smooth" });
-      setTimeout(() => {
-        isScrolling.current = false;
-      }, 1000); // prevent scroll handler from firing during smooth scroll
-    }
-  }, [location.pathname]);
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    tokenManager.removeToken();
+    setIsAuthenticated(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #d2691e 0%, #cd853f 25%, #daa520 50%, #b8860b 75%, #a0522d 100%)',
+        color: 'white',
+        fontSize: '1.2rem'
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div ref={heroRef} id="hero-section">
-        <HeroSection />
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<Landing />} />
+      <Route path="/questions" element={<Questions />} />
+      <Route path="/login" element={<LoginSignup onLogin={handleLogin} />} />
+      
+      {/* Protected Routes */}
+      <Route 
+        path="/dashboard" 
+        element={
+          isAuthenticated ? (
+            <DashboardWithNavigation onLogout={handleLogout} />
+          ) : (
+            <LoginSignup onLogin={handleLogin} />
+          )
+        } 
+      />
+      <Route 
+        path="/hero" 
+        element={
+          isAuthenticated ? (
+            <HeroSectionWithButton onLogout={handleLogout} />
+          ) : (
+            <LoginSignup onLogin={handleLogin} />
+          )
+        } 
+      />
+      <Route 
+        path="/game" 
+        element={
+          isAuthenticated ? (
+            <DragDropGame onLogout={handleLogout} />
+          ) : (
+            <LoginSignup onLogin={handleLogin} />
+          )
+        } 
+      />
+    </Routes>
+  );
+}
+
+// Dashboard with navigation buttons
+function DashboardWithNavigation({ onLogout }) {
+  const navigate = useNavigate();
+
+  const handleGoToHero = () => {
+    navigate('/hero');
+  };
+
+  const handleStartGame = () => {
+    navigate('/game');
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <Dashboard />
+      {/* Navigation buttons */}
+      <div style={{
+        position: 'fixed',
+        bottom: '30px',
+        right: '30px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+      }}>
+        <button
+          onClick={handleGoToHero}
+          style={{
+            padding: '12px 20px',
+            backgroundColor: '#2196F3',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#1976D2';
+            e.target.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#2196F3';
+            e.target.style.transform = 'scale(1)';
+          }}
+        >
+          🏛️ Hero Section
+        </button>
+        <button
+          onClick={handleStartGame}
+          style={{
+            padding: '15px 25px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#45a049';
+            e.target.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#4CAF50';
+            e.target.style.transform = 'scale(1)';
+          }}
+        >
+          🎮 Start Sanskrit Game
+        </button>
+        <button
+          onClick={onLogout}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#f44336',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+          }}
+        >
+          Logout
+        </button>
       </div>
-      <div ref={dashboardRef} id="dashboard-section" style={{ marginTop: '600px' }}>
-        <ParallaxProvider>
-          <Dashboard />
-        </ParallaxProvider>
+    </div>
+  );
+}
+
+// Modified HeroSection with button to navigate to game
+function HeroSectionWithButton({ onLogout }) {
+  const navigate = useNavigate();
+
+  const handleStartGame = () => {
+    navigate('/game');
+  };
+
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <HeroSection />
+      {/* Floating button to start game */}
+      <div style={{
+        position: 'fixed',
+        bottom: '30px',
+        right: '30px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+      }}>
+        <button
+          onClick={handleBackToDashboard}
+          style={{
+            padding: '10px 18px',
+            backgroundColor: '#FF9800',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+          }}
+        >
+          📊 Dashboard
+        </button>
+        <button
+          onClick={handleStartGame}
+          style={{
+            padding: '15px 25px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#45a049';
+            e.target.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#4CAF50';
+            e.target.style.transform = 'scale(1)';
+          }}
+        >
+          🎮 Start Sanskrit Game
+        </button>
+        <button
+          onClick={onLogout}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#f44336',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+          }}
+        >
+          Logout
+        </button>
       </div>
-    </>
+    </div>
   );
 }
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />}/>
-        <Route path="/questions" element={<Questions />}/>
-        <Route path="/hero" element={<ScrollSections />}/>
-        <Route path="/dashboard" element={<ScrollSections />}/>
-      </Routes>
+      <AuthWrapper />
     </BrowserRouter>
-    
   );
 }
 
